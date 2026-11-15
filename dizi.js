@@ -1,12 +1,9 @@
 /**
- * Плагин "Dizi (Турецкие сериалы)" для Lampa TV
+ * Плагин "Dizi (Турецкие сериалы)" для Lampa TV v1.0.1
  */
 
 (function () {
     'use strict';
-
-    if (window.plugin_dizi_ready) return;
-    window.plugin_dizi_ready = true;
 
     function openCategories() {
         var today = new Date().toISOString().split('T')[0];
@@ -61,9 +58,13 @@
     }
 
     function addMenuItem() {
-        if ($('.menu__item[data-action="dizi"]').length) return;
+        var menu = $('.menu .menu__list');
+        if (!menu.length) return false;
+        
+        // Если пункт уже есть в меню - не дублируем
+        if ($('.menu__item[data-action="dizi"]').length) return true;
 
-        var html = `
+        var item = $(`
             <li class="menu__item selector" data-action="dizi">
                 <div class="menu__ico">
                     <svg height="24" viewBox="0 0 24 24" width="24" fill="currentColor">
@@ -72,30 +73,39 @@
                 </div>
                 <div class="menu__text">Турецкие сериалы</div>
             </li>
-        `;
+        `);
 
-        var item = $(html);
-
-        item.on('hover:enter', function () {
+        item.on('hover:enter click', function () {
             openCategories();
         });
 
-        // Вставляем после стандартного пункта "Сериалы"
-        var tvItem = $('.menu__item[data-action="tv"]');
-        if (tvItem.length) {
-            tvItem.after(item);
+        // Вставляем после пункта "Сериалы", "Релизы" или "Каталог"
+        var target = menu.find('.menu__item[data-action="tv"], .menu__item[data-action="relise"], .menu__item[data-action="catalog"]');
+        if (target.length) {
+            target.first().after(item);
         } else {
-            $('.menu__list').append(item);
+            menu.append(item);
         }
+
+        return true;
     }
 
     function startPlugin() {
         addMenuItem();
 
-        Lampa.Listener.follow('activity', function (e) {
-            if (e.type === 'start') {
-                setTimeout(addMenuItem, 300);
+        // Повторяем попытки каждые 500мс в течение первых 10 секунд
+        var attempts = 0;
+        var interval = setInterval(function () {
+            attempts++;
+            if (addMenuItem() || attempts > 20) {
+                clearInterval(interval);
             }
+        }, 500);
+
+        // Отслеживаем переходы по экранам
+        Lampa.Listener.follow('activity,app', function () {
+            setTimeout(addMenuItem, 100);
+            setTimeout(addMenuItem, 500);
         });
     }
 
